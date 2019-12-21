@@ -1,11 +1,51 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from random import random
+import math
+
+IMAGE_SIZE = 30 # The image is square.
+SAMPLES = 100
+MIRROR_SCALE = 0.95 # Radius of the mirror in the image in relation to the half-width of the image size.
+
+class BasicNetwork:
+    weights = np.random.rand(IMAGE_SIZE*IMAGE_SIZE) - 0.5
+    def __init__(self, lr):
+        self.learningRate = lr
+    def forwardProp(self, data):
+        flat = data.flatten()
+        return (np.dot(flat, self.weights))
+
+    def calculateError(actual, target):
+        return (actual - target)
+
+    def backProp(self, data, error):
+        delta = -error * self.weights
+        self.weights = self.weights - delta*self.learningRate
 
 def main():
-    zeros = np.zeros((30,30))
-    drawLine(zeros, 0, 0, 15, 30)
-    plt.imshow(zeros);
-    plt.show()
+    data, labels = generateBasicData()
+    #for i in range (int(SAMPLES/4)):
+    #    plt.imshow(data[i], cmap="Greys_r");
+    #    plt.show()
+    bn = BasicNetwork(0.0001)
+    for i in range(SAMPLES):
+        actual = bn.forwardProp(data[i])
+        target = labels[i]
+        error = BasicNetwork.calculateError(actual, target)
+        bn.backProp(data[i], error)
+        print("[%i] Result: %.2f\tTarget: %.2f\tError: %.2f"%(i, actual, target, error))
+
+# A simple data generator that just generates a line from the centerpoint outwards.
+def generateBasicData():
+    data = np.zeros((SAMPLES, IMAGE_SIZE, IMAGE_SIZE))
+    labels = np.zeros(SAMPLES)
+    midpoint = IMAGE_SIZE/float(2)
+    radius = MIRROR_SCALE * midpoint
+    for i in range(SAMPLES):
+        angle = random() * math.pi * 2
+        drawLine(data[i], int(midpoint), int(midpoint), int(midpoint + math.cos(angle)*radius), int(midpoint + math.sin(angle)*radius))
+        labels[i] = angle * 180/math.pi
+    return (data, labels)
 
 def drawLine(matrix, x0, y0, x1, y1, color=255):
     xMin = min(x0,x1)
