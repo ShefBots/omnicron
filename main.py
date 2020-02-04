@@ -3,37 +3,50 @@ from matplotlib import pyplot as plt
 from random import random
 import math
 
-IMAGE_SIZE = 30 # The image is square.
-SAMPLES = 100
+IMAGE_SIZE = 15 # The image is square.
+SAMPLES = 1000000
+REPEATS = 100
 MIRROR_SCALE = 0.95 # Radius of the mirror in the image in relation to the half-width of the image size.
 
+# A single-layer, single-output network
 class BasicNetwork:
-    weights = np.random.rand(IMAGE_SIZE*IMAGE_SIZE) - 0.5
+    weights = np.random.rand(IMAGE_SIZE*IMAGE_SIZE)# - 0.5
+    bias = np.random.random()
     def __init__(self, lr):
         self.learningRate = lr
     def forwardProp(self, data):
         flat = data.flatten()
-        return (np.dot(flat, self.weights))
+        return (np.dot(flat, self.weights) + self.bias)
 
+    # Calculates the squared error on this output
     def calculateError(actual, target):
-        return (actual - target)
+        return ((target - actual)**2)
 
-    def backProp(self, data, error):
-        delta = -error * self.weights
-        self.weights = self.weights - delta*self.learningRate
+    def backProp(self, data, target):
+        flat = data.flatten()
+        delta = (target - np.dot(flat,self.weights)+self.bias) * flat # The differential of the error fn wrt weights (div. 2)
+        self.weights = self.weights + delta*self.learningRate
+        deltaB = (target - np.dot(flat, self.weights)+self.bias) # [* 1]  # The differential of the error fn wrt the bias.
+        self.bias = self.bias + deltaB*self.learningRate
 
 def main():
     data, labels = generateBasicData()
-    #for i in range (int(SAMPLES/4)):
+    #for i in range (int(min(SAMPLES/4, 10)):
     #    plt.imshow(data[i], cmap="Greys_r");
     #    plt.show()
-    bn = BasicNetwork(0.0001)
-    for i in range(SAMPLES):
-        actual = bn.forwardProp(data[i])
-        target = labels[i]
+    bn = BasicNetwork(0.0000000001)
+    errors = np.zeros(SAMPLES*REPEATS)
+    for i in range(SAMPLES*REPEATS):
+        actual = bn.forwardProp(data[i%SAMPLES])
+        target = labels[i%SAMPLES]
         error = BasicNetwork.calculateError(actual, target)
-        bn.backProp(data[i], error)
-        print("[%i] Result: %.2f\tTarget: %.2f\tError: %.2f"%(i, actual, target, error))
+        bn.backProp(data[i%SAMPLES], target)
+        print("[%i] %.2f pct\tResult: %.2f\tTarget: %.2f\tError: %.2f"%(i, float(i)/float(SAMPLES*REPEATS)*100, actual, target, error))
+        errors[i] = error
+    plt.plot(errors)
+    plt.show()
+    plt.imshow(bn.weights.reshape((IMAGE_SIZE,IMAGE_SIZE)))
+    plt.show()
 
 # A simple data generator that just generates a line from the centerpoint outwards.
 def generateBasicData():
