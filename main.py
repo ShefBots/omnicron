@@ -4,8 +4,8 @@ from random import random
 import math
 
 IMAGE_SIZE = 15 # The image is square.
-SAMPLES = 1000000
-REPEATS = 100
+SAMPLES = 100000
+REPEATS = 1
 MIRROR_SCALE = 0.95 # Radius of the mirror in the image in relation to the half-width of the image size.
 
 # A single-layer, single-output network
@@ -34,7 +34,7 @@ def main():
     #for i in range (int(min(SAMPLES/4, 10)):
     #    plt.imshow(data[i], cmap="Greys_r");
     #    plt.show()
-    bn = BasicNetwork(0.0000000001)
+    bn = BasicNetwork(0.000000001)
     errors = np.zeros(SAMPLES*REPEATS)
     for i in range(SAMPLES*REPEATS):
         actual = bn.forwardProp(data[i%SAMPLES])
