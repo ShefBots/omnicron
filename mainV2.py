@@ -4,8 +4,8 @@ from random import random
 import math
 
 IMAGE_SIZE = 15 # The image is square.
-SAMPLES = 100000
-REPEATS = 3
+SAMPLES = 1000
+REPEATS = 100
 MIRROR_SCALE = 0.95 # Radius of the mirror in the image in relation to the half-width of the image size.
 
 # A single-layer, single-output network
@@ -15,22 +15,61 @@ class BasicNetwork:
     def __init__(self, lr):
         self.learningRate = lr
     def forwardProp(self, data):
-        flat = data.flatten()
+        if(len(data.shape) == 3):
+          newShape = (data.shape[0], IMAGE_SIZE*IMAGE_SIZE)
+        else:
+          newShape = (IMAGE_SIZE*IMAGE_SIZE)
+        flat = data.reshape(newShape)
         return (np.dot(flat, self.weights) + self.bias)
 
     # Calculates the squared error on this output
     def calculateError(actual, target):
         return ((target - actual)**2)
 
-    def backProp(self, data, target):
+    def backProp(self, data, actual, target):
         flat = data.flatten()
-        delta = (target - np.dot(flat,self.weights)+self.bias) * flat # The differential of the error fn wrt weights (div. 2)
+        delta = (target - actual) * flat # The differential of the error fn wrt weights (div. 2)
         self.weights = self.weights + delta*self.learningRate
-        deltaB = (target - np.dot(flat, self.weights)+self.bias) # [* 1]  # The differential of the error fn wrt the bias.
+        deltaB = (target - actual) # [* 1]  # The differential of the error fn wrt the bias.
         self.bias = self.bias + deltaB*self.learningRate
 
+    def backPropBatch(self, data, actual, target):
+        flat = data.reshape((data.shape[0], IMAGE_SIZE*IMAGE_SIZE)) # Reshape to be a batch
+        print("TARGET:")
+        print(target.shape)
+        print("ACTUAL:")
+        print(actual.shape)
+        print("FLAT:")
+        print(flat.shape)
+        print(flat)
+        sub = target - actual
+        delta = ((target - actual) * flat).mean() # The AVERAGE differential of the error fn wrt weights (div. 2)
+        self.weights = self.weights + delta*self.learningRate
+        deltaB = (target - actual).mean() # [* 1]  # The AVERAGE differential of the error fn wrt the bias.
+        self.bias = self.bias + deltaB*self.learningRate
+
+    def plotInfo(self, errors):
+        plt.plot(errors)
+        plt.show()
+        plt.imshow(self.weights.reshape((IMAGE_SIZE,IMAGE_SIZE)))
+        plt.show()
+
 def main():
-    onlineTrain()
+    batchTrain()
+    #onlineTrain()
+
+def batchTrain():
+  bn = BasicNetwork(0.0000001)
+  errors = np.zeros(REPEATS)
+  for i in range(REPEATS):
+    data, labels = generateBasicData(SAMPLES)
+    actual = bn.forwardProp(data) # This is vector of results (one for each sample)
+    error = BasicNetwork.calculateError(actual, labels) # This is vector of errors
+    bn.backPropBatch(data, actual, labels)
+    meanError = error.mean()
+    print("[%i] %.2f pct\tResult: %.2f\tTarget: %.2f\tError: %.2f"%(i, float(i)/float(SAMPLES*REPEATS)*100, actual[0], labels[0], meanError))
+    errors[i] = meanError
+  bn.plotInfo(errors)
 
 def onlineTrain():
     data, labels = generateBasicData(SAMPLES)
@@ -43,13 +82,10 @@ def onlineTrain():
         actual = bn.forwardProp(data[i%SAMPLES])
         target = labels[i%SAMPLES]
         error = BasicNetwork.calculateError(actual, target)
-        bn.backProp(data[i%SAMPLES], target)
+        bn.backProp(data[i%SAMPLES], actual, target)
         print("[%i] %.2f pct\tResult: %.2f\tTarget: %.2f\tError: %.2f"%(i, float(i)/float(SAMPLES*REPEATS)*100, actual, target, error))
         errors[i] = error
-    plt.plot(errors)
-    plt.show()
-    plt.imshow(bn.weights.reshape((IMAGE_SIZE,IMAGE_SIZE)))
-    plt.show()
+    bn.plotInfo(errors)
 
 # A simple data generator that just generates a line from the centerpoint outwards.
 def generateBasicData(count):
