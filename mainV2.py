@@ -4,8 +4,10 @@ from random import random
 import math
 
 IMAGE_SIZE = 15 # The image is square.
-SAMPLES = 1000
-REPEATS = 100
+SAMPLES = 2
+REPEATS = 1000000
+#SAMPLES = 1000000
+#REPEATS = 1
 MIRROR_SCALE = 0.95 # Radius of the mirror in the image in relation to the half-width of the image size.
 
 # A single-layer, single-output network
@@ -34,18 +36,14 @@ class BasicNetwork:
         self.bias = self.bias + deltaB*self.learningRate
 
     def backPropBatch(self, data, actual, target):
-        flat = data.reshape((data.shape[0], IMAGE_SIZE*IMAGE_SIZE)) # Reshape to be a batch
-        print("TARGET:")
-        print(target.shape)
-        print("ACTUAL:")
-        print(actual.shape)
-        print("FLAT:")
-        print(flat.shape)
-        print(flat)
-        sub = target - actual
-        delta = ((target - actual) * flat).mean() # The AVERAGE differential of the error fn wrt weights (div. 2)
+        # Reshape to be a batch of 1D images
+        images = data.reshape((data.shape[0], IMAGE_SIZE*IMAGE_SIZE))
+        differences1D = target-actual # Calculate the differences between the targets
+        differences = np.diag(differences1D) # Store the differences in a matrix to use them to scale the weights
+        # The PER-WEIGHT (PIXEL) AVERAGE differential of the error fn wrt weights (div. 2) across all images in batch:
+        delta = ((target - actual).dot(images)).mean(axis=0)
         self.weights = self.weights + delta*self.learningRate
-        deltaB = (target - actual).mean() # [* 1]  # The AVERAGE differential of the error fn wrt the bias.
+        deltaB = differences1D.mean() # [* 1]  # The AVERAGE differential of the error fn wrt the bias.
         self.bias = self.bias + deltaB*self.learningRate
 
     def plotInfo(self, errors):
@@ -55,7 +53,7 @@ class BasicNetwork:
         plt.show()
 
 def main():
-    batchTrain()
+    #batchTrain()
     #onlineTrain()
 
 def batchTrain():
@@ -67,7 +65,7 @@ def batchTrain():
     error = BasicNetwork.calculateError(actual, labels) # This is vector of errors
     bn.backPropBatch(data, actual, labels)
     meanError = error.mean()
-    print("[%i] %.2f pct\tResult: %.2f\tTarget: %.2f\tError: %.2f"%(i, float(i)/float(SAMPLES*REPEATS)*100, actual[0], labels[0], meanError))
+    print("[%i] %.2f pct\tResult: %.2f\tTarget: %.2f\tError: %.2f"%(i, float(i)/float(REPEATS)*100, actual[0], labels[0], meanError))
     errors[i] = meanError
   bn.plotInfo(errors)
 
