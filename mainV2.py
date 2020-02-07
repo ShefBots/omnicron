@@ -4,10 +4,11 @@ from random import random
 import math
 
 IMAGE_SIZE = 15 # The image is square.
-SAMPLES = 2
-REPEATS = 1000000
-#SAMPLES = 1000000
+SAMPLES = 100 # Batch
+REPEATS = 100000
+#SAMPLES = 10000 # Single
 #REPEATS = 1
+LR = 0.00000001
 MIRROR_SCALE = 0.95 # Radius of the mirror in the image in relation to the half-width of the image size.
 
 # A single-layer, single-output network
@@ -43,7 +44,7 @@ class BasicNetwork:
         differences1D = target-actual # Calculate the differences between the targets
         differences = np.diag(differences1D) # Store the differences in a matrix to use them to scale the weights
         # The PER-WEIGHT (PIXEL) AVERAGE differential of the error fn wrt weights (div. 2) across all images in batch:
-        delta = ((target - actual).dot(images)).mean(axis=0)
+        delta = (differences.dot(images)).mean(axis=0)
         deltaB = differences1D.mean() # [* 1]  # The AVERAGE differential of the error fn wrt the bias.
         if(debug):
             return (delta, deltaB) # Return deltas for debug
@@ -57,9 +58,9 @@ class BasicNetwork:
         plt.show()
 
 def main():
-    #batchTrain()
+    batchTrain()
     #onlineTrain()
-    test()
+    #test()
 
 def test():
     # Hack the image size smaller for easier reading
@@ -86,7 +87,7 @@ def test():
     print("batch deltab:", deltaB)
 
 def batchTrain():
-  bn = BasicNetwork(0.0000001)
+  bn = BasicNetwork(LR)
   errors = np.zeros(REPEATS)
   for i in range(REPEATS):
     data, labels = generateBasicData(SAMPLES)
@@ -96,6 +97,7 @@ def batchTrain():
     meanError = error.mean()
     print("[%i] %.2f pct\tResult: %.2f\tTarget: %.2f\tError: %.2f"%(i, float(i)/float(REPEATS)*100, actual[0], labels[0], meanError))
     errors[i] = meanError
+    bn.learningRate *= 0.9999999999999
   bn.plotInfo(errors)
 
 def onlineTrain():
@@ -103,7 +105,7 @@ def onlineTrain():
     #for i in range (int(min(SAMPLES/4, 10)):
     #    plt.imshow(data[i], cmap="Greys_r");
     #    plt.show()
-    bn = BasicNetwork(0.000000001)
+    bn = BasicNetwork(LR)
     errors = np.zeros(SAMPLES*REPEATS)
     for i in range(SAMPLES*REPEATS):
         actual = bn.forwardProp(data[i%SAMPLES])
