@@ -12,10 +12,10 @@ MIRROR_SCALE = 0.95 # Radius of the mirror in the image in relation to the half-
 
 # A single-layer, single-output network
 class BasicNetwork:
-    weights = np.random.rand(IMAGE_SIZE*IMAGE_SIZE) - 0.5
-    bias = np.random.random()
     def __init__(self, lr):
         self.learningRate = lr
+        self.weights = np.random.rand(IMAGE_SIZE*IMAGE_SIZE) - 0.5
+        self.bias = np.random.random()
     def forwardProp(self, data):
         if(len(data.shape) == 3):
           newShape = (data.shape[0], IMAGE_SIZE*IMAGE_SIZE)
@@ -28,22 +28,26 @@ class BasicNetwork:
     def calculateError(actual, target):
         return ((target - actual)**2)
 
-    def backProp(self, data, actual, target):
+    def backProp(self, data, actual, target, debug=False):
         flat = data.flatten()
         delta = (target - actual) * flat # The differential of the error fn wrt weights (div. 2)
-        self.weights = self.weights + delta*self.learningRate
         deltaB = (target - actual) # [* 1]  # The differential of the error fn wrt the bias.
+        if(debug):
+            return (delta, deltaB) # Return deltas for debug
+        self.weights = self.weights + delta*self.learningRate
         self.bias = self.bias + deltaB*self.learningRate
 
-    def backPropBatch(self, data, actual, target):
+    def backPropBatch(self, data, actual, target, debug=False):
         # Reshape to be a batch of 1D images
         images = data.reshape((data.shape[0], IMAGE_SIZE*IMAGE_SIZE))
         differences1D = target-actual # Calculate the differences between the targets
         differences = np.diag(differences1D) # Store the differences in a matrix to use them to scale the weights
         # The PER-WEIGHT (PIXEL) AVERAGE differential of the error fn wrt weights (div. 2) across all images in batch:
         delta = ((target - actual).dot(images)).mean(axis=0)
-        self.weights = self.weights + delta*self.learningRate
         deltaB = differences1D.mean() # [* 1]  # The AVERAGE differential of the error fn wrt the bias.
+        if(debug):
+            return (delta, deltaB) # Return deltas for debug
+        self.weights = self.weights + delta*self.learningRate
         self.bias = self.bias + deltaB*self.learningRate
 
     def plotInfo(self, errors):
@@ -55,6 +59,31 @@ class BasicNetwork:
 def main():
     #batchTrain()
     #onlineTrain()
+    test()
+
+def test():
+    # Hack the image size smaller for easier reading
+    global IMAGE_SIZE
+    IMAGE_SIZE = 4
+
+    # Generate results, compare the backprop implementations
+    data, labels = generateBasicData(1)
+    bn = BasicNetwork(0.0000001)
+    actual = bn.forwardProp(data) # This is vector of results (one for each sample)
+    error = BasicNetwork.calculateError(actual, labels) # This is vector of errors
+
+    # TESTING BACKPROP METHODS:
+    target = labels[0]
+
+    # SINGULAR BACKPROP
+    delta, deltaB = bn.backProp(data, actual, target, debug=True)
+    print("singular delta:", delta)
+    print("singular deltab:", deltaB)
+
+    # BATCH BACKPROP
+    delta, deltaB = bn.backPropBatch(data, actual, target, debug=True)
+    print("batch delta:", delta)
+    print("batch deltab:", deltaB)
 
 def batchTrain():
   bn = BasicNetwork(0.0000001)
