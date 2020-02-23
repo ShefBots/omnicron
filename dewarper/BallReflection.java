@@ -7,83 +7,114 @@ import java.awt.Graphics2D;
 
 
 public class BallReflection {
-	public static int STEPS = 10;
-	public static double rayLen = 1000;
-	public static void main(String[] args) throws InterruptedException
-	{
-		SimpleDisplay d = new SimpleDisplay(550,600,true, true);
-		Graphics2D g = d.getGraphics2D();
 
-		double radius = 60;
-		double height = 300;
-		NVector offsetV = new NVector(new double[]{200,100});
-		NVector cameraV = offsetV.add(new NVector(new double[]{0,height}));
+	public static class ReflectionRegressor {
+		public static SimpleDisplay d = new SimpleDisplay(400,600, "Reflection Regressor", true, true);
+		public static Graphics2D g = d.getGraphics2D();
+		public static final double RAY_LEN = 1000;
+		public static final int MAX_ITERATIONS = 100;
+		public static final int STEPS = 10;
+		public static final double STEP_DOWNSCALE = 0.4;
 
-		Point offset = toPoint(offsetV);
-		Point camera = toPoint(cameraV);
+		public static double ballRadius = 100;
+		public static double cameraDistance = 300;
+		public static NVector offset = new NVector(new double[]{100,100});
 		
-		Environment env = new Environment();
-		env.entities.add(new CircleBoundedEntity(offset.getX(), offset.getY(), radius));
-		CircleBoundedEntity camCircle = new CircleBoundedEntity(camera.getX(), camera.getY(), 4);
-		env.entities.add(camCircle);
-		
-		g.setColor(Color.BLACK);
-		env.draw(g);
-		d.repaint();
-		g.setColor(Color.RED);
+		// Store the environment:
+		public static Environment env = new Environment();
+		public static CircleBoundedEntity camCircle = new CircleBoundedEntity(offset.getElement(0), offset.getElement(1) + cameraDistance, 4);
+		public static CircleBoundedEntity reflectorCircle;
 
 
-		////// The maths part.
-		//NVector outputDirection = new NVector(new double[]{1,1}).normalize(); // Points directly horizontally to the right.
+		private NVector targetSlope;
+		private Hit rayHit = new Hit(false, camCircle.getX(), camCircle.getY());
+		private NVector reflectedRay = new NVector(new double[]{0,0});
 
-		//double a = outputDirection.dot(outputDirection);
-		//double b = -2*cameraV.dot(outputDirection);
-		//double c = cameraV.dot(cameraV) - radius*radius;
+		private double angularStep = Math.asin(ballRadius/cameraDistance)/STEPS;
 
-		//double distance = (-b + Math.sqrt(b*b - 4*a*c))/(2*a);
-		//double d2 = (-b - Math.sqrt(b*b - 4*a*c))/(2*a);
-		//if(d2 < distance)
-		//	distance = d2;// Get the closest one.
-
-		//// Derive the angle:
-		//double angle = Math.acos((radius*radius - height*height - distance*distance)/(-2*height*distance));
-		//double arbDist = 1000;
-		//Point endPoint = new Point(camera.getX() + Math.sin(angle)*arbDist, camera.getY() + Math.cos(angle)*arbDist);
-		////Point endPoint = new Point(100, 100);
-		//DistancedHit out = env.hitScan(camera, endPoint);
-		//g.drawLine((int)camera.getX(), (int)camera.getY(), (int)endPoint.getX(), (int)endPoint.getY());
-		//d.repaint();
-
-
-		// SCREW THE MATHS PART. WE'RE GOING 'PROXIMA ON THIS.
-		double targetAngle = 
-		NVector	targetSlope = ;
-		double maximumAngle = Math.asin(radius/height);
-
-		for(double a = 0.0; a<=maximumAngle; a+=(maximumAngle/STEPS))
+		static{
+			// Man look at this strange static-class programming.
+			env.entities.add(new CircleBoundedEntity(offset.getElement(0), offset.getElement(1), ballRadius));
+			env.entities.add(camCircle);
+		}
+		public static void drawEnvironment()
 		{
-			NVector ray = new NVector(new double[]{Math.sin(a), -Math.cos(a)});
-			Point endPoint = toPoint(ray.scale(rayLen).add(cameraV));
-			Hit out = env.hitScan(camera, endPoint, (AbstractEntity)camCircle);
-
-			NVector normal = toNVector(out).subtract(offsetV);
-			NVector invertedRay = ray.scale(-100);
-			NVector mirror = normal.scale(2 * ((invertedRay.dot(normal))/(normal.dot(normal)))).subtract(invertedRay);
-			double difference = 
-
-			// The drawing
-			
-			d.fill(Color.WHITE);
 			g.setColor(Color.BLACK);
 			env.draw(g);
-			g.setColor(Color.RED);
-			g.drawLine((int)camera.getX(), (int)camera.getY(), (int)out.getX(), (int)out.getY());
-			g.setColor(Color.BLUE);
-			g.drawLine((int)out.getX(), (int)out.getY(), (int)(out.getX()+normal.getElement(0)), (int)(out.getY()+normal.getElement(1)));
-			g.setColor(Color.GREEN);
-			g.drawLine((int)out.getX(), (int)out.getY(), (int)(out.getX()+mirror.getElement(0)), (int)(out.getY()+mirror.getElement(1)));
 			d.repaint();
-			Thread.sleep(1000);
+		}
+
+		public ReflectionRegressor(double targetAngle)
+		{
+			setTargetAngle(targetAngle);
+		}
+		public void drawLines()
+		{
+			NVector mirrorDisp = reflectedRay.scale(100);
+			g.setColor(Color.ORANGE);
+			g.drawLine((int)camCircle.getX(), (int)camCircle.getY(), (int)rayHit.getX(), (int)rayHit.getY());
+			g.setColor(Color.RED);
+			g.drawLine((int)rayHit.getX(), (int)rayHit.getY(), (int)(rayHit.getX()+mirrorDisp.getElement(0)), (int)(rayHit.getY()+mirrorDisp.getElement(1)));
+			d.repaint();
+		}
+
+		public void setTargetAngle(double angleDegs)
+		{
+			double rads = angleDegs/180 * Math.PI;
+			targetSlope = new NVector(new double[]{Math.cos(rads), Math.sin(rads)});
+		}
+		public double regressAngle()
+		{
+			NVector cameraV = new NVector(new double[]{camCircle.getX(), camCircle.getY()});
+
+			int iterations = 0;
+			double angle = 0.0;
+			int lastSign = 1;
+			do
+			{
+				NVector ray = new NVector(new double[]{Math.sin(angle), -Math.cos(angle)});
+				Point endPoint = toPoint(ray.scale(RAY_LEN).add(cameraV));
+				rayHit = env.hitScan(camCircle, endPoint, (AbstractEntity)camCircle);
+
+				NVector normal = toNVector(rayHit).subtract(offset);
+				NVector invertedRay = ray.scale(-1);
+				reflectedRay = normal.scale(2 * ((invertedRay.dot(normal))/(normal.dot(normal)))).subtract(invertedRay);
+				//NVector mirrorDisp = mirror.scale(100);
+
+				// Update the rule based on the error
+				if(!rayHit.madeContact())
+				{
+					angle -= angularStep; // Just step back if the end was reached, clearly the target is closer to the right
+					angularStep *= STEP_DOWNSCALE;
+					continue;
+				}
+				double yError = reflectedRay.getElement(1) - targetSlope.getElement(1);
+				//System.out.println("y error: " + yError);
+				int errorSign = (int)Math.signum(yError); // Really, we only care about the vertical error.
+				if(errorSign != lastSign)
+				{
+					angularStep *= -STEP_DOWNSCALE; // Flip direction and scale down the step
+				}
+				lastSign = errorSign;
+				angle += angularStep;
+				iterations++;
+			}while(iterations < MAX_ITERATIONS);
+			
+			return angle;
+		}
+	}
+
+	public static void main(String[] args) throws InterruptedException
+	{
+		// ReflectionRegressor.cameraDistance is not needed! (Plus probably ball radius, but you can create a static function that changes that object - maybe make the object private?)
+		ReflectionRegressor.camCircle.setY(ReflectionRegressor.camCircle.getY()+300);
+		ReflectionRegressor.drawEnvironment();
+
+		for(double i = -70; i<90; i+= 1)
+		{
+			ReflectionRegressor rr = new ReflectionRegressor(i);
+			rr.regressAngle();
+			rr.drawLines();
 		}
 	}
 	public static Point toPoint(NVector v)
