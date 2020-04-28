@@ -1,0 +1,22 @@
+
+This is a list of experiments to perform with the robot to record some useful data for traditional CV methods:
+
+### Test Runs for SLAM algorithm test:
+  - driving around and inbetween barrels
+    - one with the robot's yaw fixed to one orientation
+    - one where the robot actually rotates around, free-drive style
+    - fast and slow variants of the two above
+  - driving around with a minesweeper square on the floor somewhere (can be fast and slow)
+
+These will be used to test a basic bitmap-based implementation of SLAM for better barrel placement in the navigation
+map. Might also try another direct-distance algorithm, but I think that'll be a bit pants.
+
+It will also allow for porting of the original minesweeper algorithm to the 360 cam.
+
+### Images for distance error tuning:
+  - Basically as many images as possible with barrels at known distances away from the robot
+    - Ideally at a set of N set distances, uniformally distributed away from the robot at
+      any number of random angles around the robot
+
+The error on the distance estimate increases in an exponential factor. The above images will allow that
+error to be tracked so it can properly be accounted for in SLAM plotting of final barrel locations.
