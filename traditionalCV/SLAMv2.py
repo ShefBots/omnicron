@@ -30,7 +30,7 @@ class Barrel:
     self.relativeCoords = np.asarray([math.cos(self.angle) * self.distance, math.sin(self.angle) * self.distance])
     self.kernelSpaceCoords = downscale(self.relativeCoords)
 
-  def drawToMatrix(self, m, offset):
+  def drawToKernel(self, m, offset):
     cv2.circle(m, (int(offset[0] + self.kernelSpaceCoords[0]), int(offset[1] + self.kernelSpaceCoords[1])), int(downscale(Barrel.BARREL_RADIUS)), 255, -1)
 
   def __str__(self):
@@ -60,7 +60,7 @@ denoiseKernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
 #upperAll = np.array([360, 255, 255])
 
 # Iterate over every image in the dewarped folder, do some detection:
-for filename in os.listdir("../data/videoFrames"):
+for filename in os.listdir("../data/videoFrames")[:20]:
   if not filename.endswith(".png"):
     continue
   print("Processing image " + filename + "...")
@@ -91,7 +91,6 @@ for filename in os.listdir("../data/videoFrames"):
   contours = contours[0] if len(contours) == 2 else contours[1] # I'm not sure why this is needed to be honest.
 
   barrels = []
-  furthestDistance = 0
   minBounds = np.zeros(2, dtype=np.float16) # [x min, y min]
   maxBounds = np.zeros(2, dtype=np.float16) # [x max, y max]
   for c in contours:
@@ -103,8 +102,6 @@ for filename in os.listdir("../data/videoFrames"):
       # Track the min and max bounds
       maxBounds = np.maximum(maxBounds, b.kernelSpaceCoords)
       minBounds = np.minimum(minBounds, b.kernelSpaceCoords)
-      if(b.distance > furthestDistance):
-        furthestDistance = b.distance
       
       # Render the output for fun
       cv2.drawContours(dewarped, [c], 0, (0,0,255), 1)
@@ -114,14 +111,15 @@ for filename in os.listdir("../data/videoFrames"):
 
   # Generate estimated position kernel
   kernelSize = (int(maxBounds[0]-minBounds[0]), int(maxBounds[1]-minBounds[1]))
-  kernelOffset = (int(kernelSize[0]/2), int(kernelSize[1]/2))
-  #barrelsKernel = np.zeros((int(maxBounds[1]-minBounds[1]), int(maxBounds[0]-minBounds[0])))
-  #offset = (int(barrelsKernel.shape[1]/2), int(barrelsKernel.shape[0]/2))
-  barrelsKernel = np.zeros((1400, 1400))
+  kernelOffset = (-minBounds[0], -minBounds[1])
+  barrelsKernel = np.zeros((kernelSize[1],kernelSize[0]))
+  worldMap = np.zeros((1400, 1400))
   offset = (700,700)
   print(filename + ": Drawing " + str(len(barrels)) + " barrels")
-  cv2.rectangle(barrelsKernel, (int(kernelOffset[1] + minBounds[0]), int(kernelOffset[1] + minBounds[1])), (int(kernelOffset[1] + maxBounds[0]), int(kernelOffset[1] + maxBounds[1])), 255)
+  cv2.rectangle(worldMap, (int(offset[0] + minBounds[0]), int(offset[1] + minBounds[1])), (int(offset[0] + maxBounds[0]), int(offset[1] + maxBounds[1])), 255)
   for b in barrels:
-    b.drawToMatrix(barrelsKernel, offset)
-  cv2.imwrite("output/barrelKernels/"+filename, barrelsKernel)
+    b.drawToKernel(worldMap, offset)
+    b.drawToKernel(barrelsKernel, kernelOffset)
+  cv2.imwrite("output/barrelKernels/"+filename.strip(".png")+"-a.png", worldMap)
+  cv2.imwrite("output/barrelKernels/"+filename.strip(".png")+"-b.png", barrelsKernel)
 
