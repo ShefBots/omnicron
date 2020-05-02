@@ -20,3 +20,10 @@ It will also allow for porting of the original minesweeper algorithm to the 360 
 
 The error on the distance estimate increases in an exponential factor. The above images will allow that
 error to be tracked so it can properly be accounted for in SLAM plotting of final barrel locations.
+
+
+### Formalised List:
+- Strafe square
+- Square with 90 on-spot turns at corners
+- Footage with the minesweeper "tile" at varying locations (robot can be static - just needs the tile to be put down for a few seconds, then moved to somewhere else for a few seconds, rinse and repeat)
+- Footage with the robot static, and a barrel (red or green) placed at known distances (10cm steps) away from the robot, up to a reasonable distance, then again but at a different angle to the robot
